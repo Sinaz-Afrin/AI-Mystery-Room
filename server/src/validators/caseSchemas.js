@@ -54,7 +54,6 @@ export function validateGeneratedCase(raw, requestedVolume = 'standard') {
   if (data.evidence.length < requiredEvidence) throw new Error(`This case needs at least ${requiredEvidence} evidence items.`)
   for (const suspect of data.suspects) {
     if (suspect.evidenceIds.some((id) => !evidenceIds.has(id))) throw new Error('A suspect refers to missing evidence.')
-    if (suspect.evidenceIds.some((id) => !data.evidence.find((item) => item.id === id)?.relatedSuspectIds.includes(suspect.id))) throw new Error('Suspect and evidence references do not agree.')
   }
   let previousMinute = -1
   for (const event of data.timeline) {
@@ -65,7 +64,20 @@ export function validateGeneratedCase(raw, requestedVolume = 'standard') {
   }
   for (const item of data.evidence) {
     if (item.relatedSuspectIds.some((id) => !suspectIds.has(id))) throw new Error('Evidence refers to a missing suspect.')
-    if (item.relatedSuspectIds.some((id) => !data.suspects.find((suspect) => suspect.id === id)?.evidenceIds.includes(item.id))) throw new Error('Evidence and suspect references do not agree.')
+  }
+  // These fields describe the same relationship from opposite directions.
+  // Accept a valid one-sided reference and normalize both lists to their union.
+  for (const suspect of data.suspects) {
+    for (const evidenceId of suspect.evidenceIds) {
+      const item = data.evidence.find(({ id }) => id === evidenceId)
+      if (!item.relatedSuspectIds.includes(suspect.id)) item.relatedSuspectIds.push(suspect.id)
+    }
+  }
+  for (const item of data.evidence) {
+    for (const suspectId of item.relatedSuspectIds) {
+      const suspect = data.suspects.find(({ id }) => id === suspectId)
+      if (!suspect.evidenceIds.includes(item.id)) suspect.evidenceIds.push(item.id)
+    }
   }
   if (data.solutionPrivate.decisiveEvidenceIds.some((id) => !evidenceIds.has(id))) throw new Error('The solution refers to missing evidence.')
   if (data.solutionPrivate.redHerringExplanations.some(({ evidenceId }) => !evidenceIds.has(evidenceId))) throw new Error('A red-herring explanation refers to missing evidence.')

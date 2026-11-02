@@ -43,6 +43,15 @@ test('case validator rejects unexplained red herrings and out-of-order timeline 
   assert.throws(() => validateGeneratedCase(outOfOrder), /chronological order/)
 })
 
+test('case validator reconciles valid one-sided suspect/evidence references', () => {
+  const generated = createMockCase(request.premise, request)
+  generated.suspects[0].evidenceIds = generated.suspects[0].evidenceIds.filter((id) => id !== 'wax-trace')
+  generated.evidence.find(({ id }) => id === 'service-key').relatedSuspectIds = []
+  const validated = validateGeneratedCase(generated)
+  assert.ok(validated.suspects[0].evidenceIds.includes('wax-trace'))
+  assert.ok(validated.evidence.find(({ id }) => id === 'service-key').relatedSuspectIds.includes('jonas-reed'))
+})
+
 test('public case and evidence DTOs keep the solution and private rationale hidden', () => {
   const generated = validateGeneratedCase(createMockCase(request.premise, request))
   const publicCase = toPublicCase({ ...generated, _id: 'case-id', status: 'playable', createdAt: new Date(), playerState: { reviewedEvidenceIds: [] } })
